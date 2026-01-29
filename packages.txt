@@ -1,7 +1,1 @@
-streamlit
-google-auth
-google-cloud-speech
-google-generativeai
-google-api-python-client
-google-cloud-storage
-pydub
+ffmpeg
