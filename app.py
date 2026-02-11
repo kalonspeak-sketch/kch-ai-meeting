@@ -778,8 +778,12 @@ with t1:
 
     with r_tab:
         if hasattr(st, "audio_input"):
+            st.info("녹음 버튼을 누르면 브라우저에서 마이크 허용/차단 팝업이 표시됩니다. 허용한 경우에만 녹음이 가능합니다.")
+            st.caption("권한을 차단했다면 주소창의 사이트 권한(자물쇠 아이콘)에서 마이크를 허용으로 바꾼 뒤 페이지를 새로고침하세요.")
             rec = st.audio_input("브라우저에서 녹음", key="audio_record")
-            if rec is not None:
+            if rec is None:
+                st.caption("녹음 파일이 아직 없습니다. 권한 허용 후 녹음을 완료하면 아래 처리 버튼이 활성화됩니다.")
+            else:
                 st.audio(rec.getvalue())
             if st.button("녹음본으로 회의록 생성", key="btn_audio_record", disabled=rec is None):
                 try:
