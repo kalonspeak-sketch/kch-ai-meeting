@@ -1,215 +1,147 @@
-import streamlit as st
-import io
-import os
-from google.oauth2 import service_account
-from google.cloud import speech
-from google.cloud import storage
-import google.generativeai as genai
-from googleapiclient.discovery import build
-from datetime import datetime
-import uuid
-from pydub import AudioSegment
+① 🔧 검증 로그 시스템 설계용 프롬프트
+당신은 대기업 전사 AI 거버넌스 설계 전문가입니다.
 
-# ==========================================
-# ⚙️ 설정
-# ==========================================
-try:
-    gcp_info = dict(st.secrets["gcp_service_account"])
-    if "private_key" in gcp_info:
-        gcp_info["private_key"] = gcp_info["private_key"].replace("\\n", "\n")
+목표:
+전 직원이 AI를 무제한 사용 중인 조직에서,
+AI 맹신을 방지하고 검증 습관을 내재화하기 위한
+“1분 이내 작성 가능한 검증 로그 시스템”을 설계하세요.
 
-    GOOGLE_API_KEY = st.secrets["general"]["GOOGLE_API_KEY"]
-    SHARED_DRIVE_ID = st.secrets["general"]["SHARED_DRIVE_ID"]
-    BUCKET_NAME = st.secrets["general"]["BUCKET_NAME"]
-    AI_MODEL_NAME = 'gemini-2.0-flash'
+조건:
+- 직원 수 약 70명
+- 올해 안 체질 개선 목표
+- KPI에 반영 예정
+- 피로도 최소화 필요
+- 형식주의 방지 장치 포함
+- 관리자 리뷰 구조 포함
 
-except Exception as e:
-    st.error(f"🚨 설정 로드 실패: {e}")
-    st.stop()
+반드시 포함할 것:
+1. 실제 로그 문항 설계 (체크박스형)
+2. 업무 프로세스에 자연스럽게 삽입하는 방법
+3. 무검증 제출 방지 장치
+4. KPI 연동 구조
+5. 형식화 방지 설계
+6. 실패 시나리오 및 대응 방안
 
-# ==========================================
-# 🛠️ 기능 함수들
-# ==========================================
+출력 형식:
+- 실행 가능한 설계서
+- 표 포함
+- 실제 도입 단계별 가이드
 
-# 0. 오디오 포맷 변환 (무엇이든 WAV로!)
-def convert_to_wav(uploaded_file):
-    # 파일 확장자 확인
-    file_ext = uploaded_file.name.split('.')[-1].lower()
-    
-    # Pydub로 오디오 읽기
-    audio = AudioSegment.from_file(uploaded_file, format=file_ext)
-    
-    # WAV로 변환 (모노, 16000Hz - 구글 STT 최적화)
-    audio = audio.set_channels(1).set_frame_rate(16000)
-    
-    # 메모리 버퍼에 저장
-    buffer = io.BytesIO()
-    audio.export(buffer, format="wav")
-    buffer.seek(0) # 버퍼 포인터 초기화
-    
-    return buffer
+② 📅 월간 + 분기 리터러시 테스트 설계 프롬프트
+당신은 조직 사고체계 전환을 설계하는 AI 리터러시 교육 전문가입니다.
 
-# 1. 파일을 클라우드 창고(Bucket)로 올리는 함수
-def upload_to_bucket(blob_name, file_obj):
-    creds = service_account.Credentials.from_service_account_info(gcp_info)
-    storage_client = storage.Client(credentials=creds, project=gcp_info["project_id"])
-    bucket = storage_client.bucket(BUCKET_NAME)
-    blob = bucket.blob(blob_name)
-    blob.upload_from_file(file_obj, content_type="audio/wav")
-    return f"gs://{BUCKET_NAME}/{blob_name}"
+목표:
+6개월 내 AI 리터러시 체질 개선을 위한
+월간 마이크로 테스트 + 분기 종합 테스트 구조를 설계하세요.
 
-# 2. 창고에 있는 파일을 받아쓰기 하는 함수
-def step1_transcribe_gcs(gcs_uri):
-    creds = service_account.Credentials.from_service_account_info(gcp_info)
-    client = speech.SpeechClient(credentials=creds)
+조건:
+- 단순 지식 테스트 금지
+- 사고 흔들기 목적
+- AI 맹신 유도형 함정 포함
+- 실무 사례 기반 문제 포함
+- KPI 반영 가능 구조
 
-    audio = speech.RecognitionAudio(uri=gcs_uri)
-    
-    # WAV(Linear16)에 16000Hz로 맞춤 설정 (오류 원천 차단)
-    config = speech.RecognitionConfig(
-        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=16000,
-        language_code="ko-KR",
-        enable_automatic_punctuation=True,
-        diarization_config=speech.SpeakerDiarizationConfig(
-            enable_speaker_diarization=True,
-            min_speaker_count=2,
-            max_speaker_count=5,
-        ),
-    )
-    
-    operation = client.long_running_recognize(config=config, audio=audio)
-    response = operation.result(timeout=1800)
+반드시 포함:
+1. 월간 10문항 구조 설계
+2. 분기 종합 테스트 유형 설계
+3. 난이도 설계 원칙
+4. 점수 반영 구조
+5. 오답 학습 장치
+6. 6개월 운영 로드맵
 
-    transcript_text = ""
-    if not response.results:
-        return "대화 내용이 감지되지 않았습니다."
+출력:
+- 테스트 설계 가이드
+- 문제 유형 예시 5개
+- 운영 프로세스
 
-    result = response.results[-1]
-    
-    if not result.alternatives:
-        return "분석 결과 없음"
+③ 📊 KPI 연동 설계 프롬프트
+당신은 성과평가 체계 설계 전문가입니다.
 
-    words_info = result.alternatives[0].words
+목표:
+AI 리터러시를 KPI에 반영하되,
+형식주의와 점수 게임화를 방지하는 안전한 구조를 설계하세요.
 
-    current_speaker = None
-    sentence_buffer = []
+조건:
+- 개인 KPI 30% 이하
+- 팀 KPI 포함
+- 검증 로그 반영
+- 오류 발견 가산점
+- AI 사용 자체는 감점 금지
 
-    for word_info in words_info:
-        speaker_tag = word_info.speaker_tag
-        if current_speaker != speaker_tag:
-            if current_speaker is not None:
-                line = f"[화자 {current_speaker}]: {' '.join(sentence_buffer)}"
-                transcript_text += line + "\n"
-            current_speaker = speaker_tag
-            sentence_buffer = []
-        sentence_buffer.append(word_info.word)
-    
-    if sentence_buffer:
-        line = f"[화자 {current_speaker}]: {' '.join(sentence_buffer)}"
-        transcript_text += line + "\n"
+반드시 포함:
+1. 개인 KPI 구성표
+2. 팀 KPI 구성표
+3. 가중치 설계 논리
+4. 부작용 방지 장치
+5. 관리자 평가 반영 방식
+6. 6개월 단계적 적용안
 
-    return transcript_text
+출력:
+- 표 기반 KPI 설계서
+- 임원 설득 논리 포함
 
-def step2_summarize(transcript):
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(AI_MODEL_NAME)
-    prompt = f"""
-    당신은 KCH Global의 유능한 회의록 서기입니다.
-    아래 녹취록을 바탕으로 보고서 형식으로 요약해주세요.
-    
-    [녹취록]
-    {transcript}
-    
-    [작성 양식]
-    # 📅 회의 요약 보고서
-    ## 1. 핵심 안건
-    ## 2. 주요 논의 사항
-    ## 3. 결정 사항
-    ## 4. 향후 계획 (담당자 지정)
-    """
-    response = model.generate_content(prompt)
-    return response.text
+④ 🧠 문화 프레임 설계 프롬프트
+당신은 조직문화 전략가입니다.
 
-def step3_save(summary, transcript):
-    SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/documents']
-    creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=SCOPES)
-    drive_service = build('drive', 'v3', credentials=creds)
-    docs_service = build('docs', 'v1', credentials=creds)
+목표:
+AI 맹신을 방지하고 검증 중심 문화를 형성하기 위한
+전사 문화 프레임을 설계하세요.
 
-    today = datetime.now().strftime("%Y-%m-%d %H시%M분")
-    file_name = f"[AI회의록] {today} 회의 결과"
+조건:
+- 이미 무제한 AI 도입 완료
+- 임원 선언 완료 상태
+- 올해 안 체질 개선 목표
+- 처벌 중심 접근 금지
+- 학습 문화 강조
 
-    file_metadata = {
-        'name': file_name,
-        'mimeType': 'application/vnd.google-apps.document',
-        'parents': [SHARED_DRIVE_ID]
-    }
-    file = drive_service.files().create(body=file_metadata, fields='id', supportsAllDrives=True).execute()
-    doc_id = file.get('id')
+반드시 포함:
+1. 핵심 메시지 5개
+2. 관리자용 코칭 가이드
+3. 실수 공유 문화 설계
+4. 내부 커뮤니케이션 문구
+5. 저항 최소화 전략
 
-    full_content = summary + "\n\n" + "-"*30 + "\n[참고: 대화 원본]\n" + transcript
-    requests = [{'insertText': {'location': {'index': 1}, 'text': full_content}}]
-    docs_service.documents().batchUpdate(documentId=doc_id, body={'requests': requests}).execute()
-    return file_name
+출력:
+- 실행 가능한 문화 설계안
+- 전사 공지문 초안 포함
 
-# ==========================================
-# 🖥️ 화면 구성
-# ==========================================
-st.set_page_config(page_title="KCH Global AI 회의록", page_icon="🎙️")
-st.title("🎙️ KCH Global AI 회의록 생성기 (Enterprise)")
-st.markdown("아이폰(m4a), 갤럭시(m4a), 녹음기(mp3) 등 **모든 파일을 지원합니다.**")
+⑤ 🔥 풀트랙 통합 설계 프롬프트 (가장 강력)
 
-# 팁: Streamlit Cloud에서 ffmpeg 설치되기를 기다려야 함
-if "ffmpeg_checked" not in st.session_state:
-    st.session_state.ffmpeg_checked = True
+이건 Genspark나 딥리서치용입니다.
 
-uploaded_file = st.file_uploader("녹음 파일 업로드", type=["mp3", "wav", "m4a"])
+당신은 전사 AI 체질 개선 프로젝트를 설계하는 최고 수준의 조직전략 컨설턴트입니다.
 
-if uploaded_file is not None:
-    st.audio(uploaded_file)
-    if st.button("🚀 대용량 회의록 만들기 시작"):
-        with st.status("AI 시스템 가동 중...", expanded=True) as status:
-            
-            # 0. 변환
-            st.write("🔄 1단계: 오디오 파일을 최적화(WAV) 변환 중...")
-            try:
-                wav_buffer = convert_to_wav(uploaded_file)
-                st.write("✅ 변환 완료!")
-            except Exception as e:
-                st.error(f"변환 실패 (ffmpeg가 아직 설치 중일 수 있습니다. 1분 뒤 다시 시도하세요): {e}")
-                st.stop()
+목표:
+6개월 내 AI 사용 조직을 “검증 중심 조직”으로 전환하는
+전사 체질 개선 프로젝트를 설계하세요.
 
-            # 1. 업로드
-            st.write("☁️ 2단계: 클라우드 창고로 전송 중...")
-            # 확장자를 .wav로 변경해서 저장
-            unique_filename = f"{uuid.uuid4()}.wav"
-            gcs_uri = upload_to_bucket(unique_filename, wav_buffer)
-            st.write(f"✅ 전송 완료! ({gcs_uri})")
+현재 상황:
+- 직원 약 70명
+- AI 무제한 사용 중
+- KPI 반영 예정
+- 임원 선언 완료
+- 올해 안 체질 개선 목표
 
-            # 2. 받아쓰기
-            st.write("🎧 3단계: AI가 내용을 듣고 받아쓰는 중... (시간이 좀 걸립니다)")
-            try:
-                transcript = step1_transcribe_gcs(gcs_uri)
-                if transcript.startswith("대화 내용이") or transcript.startswith("분석 결과"):
-                     st.warning("⚠️ 대화 내용이 명확하게 들리지 않거나 너무 짧습니다.")
-                     st.stop()
-                st.write("✅ 받아쓰기 완료!")
-            except Exception as e:
-                st.error(f"받아쓰기 실패: {e}")
-                st.stop()
-            
-            # 3. 요약
-            st.write("🧠 4단계: 핵심 내용 요약 중...")
-            summary = step2_summarize(transcript)
-            st.write("✅ 요약 완료!")
-            
-            # 4. 저장
-            st.write("💾 5단계: 드라이브 저장 중...")
-            file_name = step3_save(summary, transcript)
-            
-            status.update(label="🎉 작업 완료!", state="complete", expanded=False)
+반드시 포함:
+1. 검증 로그 시스템 설계
+2. 월간 + 분기 테스트 구조
+3. KPI 연동 설계
+4. 문화 프레임 전략
+5. 6개월 실행 로드맵
+6. 리스크 및 대응 전략
+7. 성공 판단 지표
 
-        st.success(f"'{file_name}' 저장 완료!")
-        st.subheader("📝 요약 미리보기")
-        st.markdown(summary)
+출력:
+- PPT 제작 가능한 구조
+- 슬라이드 단위 구성
+- 표와 단계별 실행안 포함
+
+🎯 전략적 조언
+
+ChatGPT → 세부 설계용
+
+Gemini → 구조 확장용
+
+Genspark → PPT 구조화용
+
+내부 AI → 폼/자동화 구현용
